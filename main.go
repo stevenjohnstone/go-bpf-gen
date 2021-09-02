@@ -1,6 +1,8 @@
 package main
 
 import (
+	"flag"
+	"log"
 	"os"
 	"path/filepath"
 	"text/template"
@@ -8,7 +10,19 @@ import (
 	"github.com/stevenjohnstone/go-bpf-gen/ret"
 )
 
-const bpftraceSrc = `
+const (
+	bpftraceEmptySrc = `
+// entry to {{ $.Symbol }}
+uprobe:{{ .Exe }}:"{{ .Symbol }}" {
+}
+
+{{ range $r := .Returns }}
+// exit from {{ $.Symbol }}
+uprobe:{{ $.Exe }}:"{{ $.Symbol }}" + {{ $r }} {
+}
+{{ end }}`
+
+	bpftraceProfileSrc = `
 uprobe:{{ .Exe }}:runtime.execute {
   // map thread id to goroutine id
   // first argument to runtime.execute is *g. Magic number 152 is offset of goroutine id
@@ -32,14 +46,30 @@ uprobe:{{ $.Exe }}:"{{ $.Symbol }}" + {{ $r }} {
 	delete(@start[$gid]);
 }
 {{ end }}`
+)
 
 func main() {
-	tmpl := template.Must(template.New("bpf").Parse(bpftraceSrc))
-	exe, err := filepath.Abs(os.Args[1])
+
+	empty := flag.Bool("empty", false, "output a template bpftrace program with no function contents")
+	flag.Parse()
+
+	args := flag.Args()
+	if len(args) != 2 {
+		log.Fatalf("usage: %s [--empty] <target executable> <symbol name>", os.Args[0])
+	}
+
+	exe, symbolName := args[0], args[1]
+
+	src := bpftraceProfileSrc
+	if *empty {
+		src = bpftraceEmptySrc
+	}
+
+	tmpl := template.Must(template.New("bpf").Parse(src))
+	exe, err := filepath.Abs(exe)
 	if err != nil {
 		panic(err)
 	}
-	symbolName := os.Args[2]
 
 	f, err := os.Open(exe)
 	if err != nil {

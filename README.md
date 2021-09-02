@@ -38,12 +38,13 @@ go install github.com/stevenjohnstone/go-bpf-gen@latest
 go-bpf-gen <executable path> <symbol>
 
 ```
-to generate a template file to stdout.
+to generate a template file to stdout suitable for basic profiling of time spent
+in the function specified by `symbol`.
 
 Example:
 
 ```
-go-bpf-gen $(which go) 'strings.(*Replacer).build' > test.bt
+go-bpf-gen $(which go) 'net.(*sysDialer).dialTCP' > test.bt
 ```
 
 generates a bpftrace program on my system like this:
@@ -80,7 +81,25 @@ uprobe:/usr/local/go/bin/go:"net.(*sysDialer).dialTCP" + 98 {
 This bpftrace program can be used to profile time spent in ```dialTCP``` by, say,
 ```go get github.com/stevenjohnstone/go-bpf-gen```.
 
-The script can be used as a starting point for more complex scripts.
+The script can be used as a starting point for more general scripts by using the `--empty` command line flag e.g.
+
+```
+go-bpf-gen $(which go) 'net.(*sysDialer).dialTCP'
+
+// entry to net.(*sysDialer).dialTCP
+uprobe:/usr/local/go/bin/go:"net.(*sysDialer).dialTCP" {
+}
+
+
+// exit from net.(*sysDialer).dialTCP
+uprobe:/usr/local/go/bin/go:"net.(*sysDialer).dialTCP" + 83 {
+}
+
+// exit from net.(*sysDialer).dialTCP
+uprobe:/usr/local/go/bin/go:"net.(*sysDialer).dialTCP" + 98 {
+}
+```
+
 
 
 # Getting Symbol Names
