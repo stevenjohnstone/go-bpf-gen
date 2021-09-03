@@ -18,7 +18,7 @@ var (
 )
 
 // FindOffsets finds all the offsets within a given function
-// wher RET instructions are found
+// where RET instructions are found
 func FindOffsets(r io.ReaderAt, symbolName string) ([]int, error) {
 	file, err := elf.NewFile(r)
 	if err != nil {
