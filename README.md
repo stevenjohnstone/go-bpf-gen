@@ -43,6 +43,9 @@ in the function specified by `symbol`.
 
 Example:
 
+Let's instrument `dialTCP` in the `go` executable (it's written in go) so we can
+profile it when doing things like `go get`:
+
 ```
 go-bpf-gen $(which go) 'net.(*sysDialer).dialTCP' > test.bt
 ```
@@ -51,12 +54,18 @@ generates a bpftrace program on my system like this:
 
 ```bpftrace
 
+struct g {
+	char _padding[152];
+	int goid;
+};
+
 uprobe:/usr/local/go/bin/go:runtime.execute {
-  // map thread id to goroutine id
-  // first argument to runtime.execute is *g. Magic number 152 is offset of goroutine id
-  // could be read from debug symbols?
-  $gid = *(reg("ax") + 152);
-  @gids[tid] = $gid;
+	// map thread id to goroutine id
+	$g = (struct g*)(reg("ax"));
+	@gids[tid] = $g->goid;
+}
+END {
+	clear(@gids);
 }
 
 uprobe:/usr/local/go/bin/go:"net.(*sysDialer).dialTCP" {
@@ -67,19 +76,17 @@ uprobe:/usr/local/go/bin/go:"net.(*sysDialer).dialTCP" {
 
 uprobe:/usr/local/go/bin/go:"net.(*sysDialer).dialTCP" + 83 {
 	$gid = @gids[tid];
-	@durations = hist(nsecs - @start[$gid]);
+	@durations = hist((nsecs - @start[$gid])/1000000);
 	delete(@start[$gid]);
 }
 
 uprobe:/usr/local/go/bin/go:"net.(*sysDialer).dialTCP" + 98 {
 	$gid = @gids[tid];
-	@durations = hist(nsecs - @start[$gid]);
+	@durations = hist((nsecs - @start[$gid])/1000000);
 	delete(@start[$gid]);
 }
-```
 
-This bpftrace program can be used to profile time spent in ```dialTCP``` by, say,
-```go get github.com/stevenjohnstone/go-bpf-gen```.
+```
 
 The script can be used as a starting point for more general scripts by using the `--empty` command line flag e.g.
 
