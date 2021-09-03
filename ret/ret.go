@@ -9,8 +9,12 @@ import (
 )
 
 var (
+	// ErrSymbolNotFound returned when the specified symbol is not located
+	// in the target ELF file
 	ErrSymbolNotFound = errors.New("symbol not found")
-	ErrNoRetFound     = errors.New("no RET instructions found")
+	// ErrNoRetFound is returned when no RET instructions are found in
+	// the function
+	ErrNoRetFound = errors.New("no RET instructions found")
 )
 
 // FindOffsets finds all the offsets within a given function

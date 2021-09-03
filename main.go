@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"text/template"
 
+	"github.com/stevenjohnstone/go-bpf-gen/goid"
 	"github.com/stevenjohnstone/go-bpf-gen/ret"
 )
 
@@ -23,12 +24,16 @@ uprobe:{{ $.Exe }}:"{{ $.Symbol }}" + {{ $r }} {
 {{ end }}`
 
 	bpftraceProfileSrc = `
+
+struct g {
+	char _padding[{{ .GoidOffset }}];
+	int goid;
+};
+
 uprobe:{{ .Exe }}:runtime.execute {
-  // map thread id to goroutine id
-  // first argument to runtime.execute is *g. Magic number 152 is offset of goroutine id
-  // could be read from debug symbols?
-  $gid = *(reg("ax") + 152);
-  @gids[tid] = $gid;
+	// map thread id to goroutine id
+	$g = (struct g*)(reg("ax"));
+	@gids[tid] = $g->goid;
 }
 END {
 	clear(@gids);
@@ -46,6 +51,8 @@ uprobe:{{ $.Exe }}:"{{ $.Symbol }}" + {{ $r }} {
 	delete(@start[$gid]);
 }
 {{ end }}`
+
+	goidOffsetMagicFallback int64 = 152
 )
 
 func main() {
@@ -81,14 +88,26 @@ func main() {
 		panic(err)
 	}
 
+	if _, err := f.Seek(0, 0); err != nil {
+		panic(err)
+	}
+
+	goidOffset, err := goid.Offset(f)
+	if err != nil {
+		log.Printf("failed to find goid offset (%s). Falling back to %d\n", err, goidOffsetMagicFallback)
+		goidOffset = goidOffsetMagicFallback
+	}
+
 	if err := tmpl.Execute(os.Stdout, struct {
-		Exe     string
-		Symbol  string
-		Returns []int
+		Exe        string
+		Symbol     string
+		GoidOffset int64
+		Returns    []int
 	}{
-		Exe:     exe,
-		Symbol:  symbolName,
-		Returns: returns,
+		Exe:        exe,
+		Symbol:     symbolName,
+		GoidOffset: goidOffset,
+		Returns:    returns,
 	}); err != nil {
 		panic(err)
 	}
