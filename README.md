@@ -50,11 +50,15 @@ go-bpf-gen templates/latency.bt $(which go) symbol='net.(*sysDialer).dialTCP' > 
 This gives a bpftrace script tailored to the target executable (in this case the go compiler):
 
 ```bpftrace
-
 struct g {
 	char _padding[152];
 	int goid;
 };
+
+BEGIN {
+  printf("Hit CTRL+C to end profiling\n");
+}
+
 
 uprobe:/usr/local/go/bin/go:runtime.execute {
 	// map thread id to goroutine id
@@ -65,18 +69,16 @@ END {
 	clear(@gids);
 }
 
+
+
+
 uprobe:/usr/local/go/bin/go:"net.(*sysDialer).dialTCP" {
 	$gid = @gids[tid];
 	@start[$gid] = nsecs;
 }
 
 
-uprobe:/usr/local/go/bin/go:"net.(*sysDialer).dialTCP" + 83 {
-	$gid = @gids[tid];
-	@durations = hist((nsecs - @start[$gid])/1000000);
-	delete(@start[$gid]);
-}
-
+uprobe:/usr/local/go/bin/go:"net.(*sysDialer).dialTCP" + 83, 
 uprobe:/usr/local/go/bin/go:"net.(*sysDialer).dialTCP" + 98 {
 	$gid = @gids[tid];
 	@durations = hist((nsecs - @start[$gid])/1000000);
