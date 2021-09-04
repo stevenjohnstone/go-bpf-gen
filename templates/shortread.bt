@@ -7,7 +7,6 @@ BEGIN {
   printf("Hit CTRL+C to end profiling\n");
 }
 
-
 uprobe:{{ .ExePath }}:runtime.execute {
 	// map thread id to goroutine id
 	$g = (struct g*)(reg("ax"));
@@ -18,20 +17,21 @@ END {
 }
 
 
-{{ range $symbol := (call .Arguments "symbol") }}
-
-uprobe:{{ $.ExePath }}:"{{ $symbol }}" {
+uprobe:{{ $.ExePath }}:"os.(*File).Read" {
 	$gid = @gids[tid];
-	@start[$gid] = nsecs;
+	@len[$gid] = reg("cx");
 }
 
-{{ range $index, $r := $.SymbolReturns $symbol -}}
+{{ range $index, $r := $.SymbolReturns "os.(*File).Read" -}}
 {{ if $index }}, {{ end }}
-uprobe:{{ $.ExePath }}:"{{ $symbol }}" + {{ $r -}}
+uprobe:{{ $.ExePath }}:"os.(*File).Read" + {{ $r -}}
 {{ end }} {
 	$gid = @gids[tid];
-	@durations = hist((nsecs - @start[$gid])/1000000);
-	delete(@start[$gid]);
+  $len = reg("ax");
+  if ($len < @len[$gid]) {
+    @shortreads[ustack()] = count();
+  }
+  delete(@len[$gid]);
 }
 
-{{ end }}
+

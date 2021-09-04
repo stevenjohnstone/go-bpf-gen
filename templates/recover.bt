@@ -1,0 +1,9 @@
+{{ range $index, $r := $.SymbolReturns "runtime.gorecover" -}}
+{{ if $index }}, {{ end }}
+uprobe:{{ $.ExePath }}:"runtime.gorecover" + {{ $r -}}
+{{ end }} {
+   // returns an interface. ptr is in ax
+  if (reg("ax") != 0) {
+    @recover[ustack()] = count();
+  }
+}
