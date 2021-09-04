@@ -35,22 +35,19 @@ go install github.com/stevenjohnstone/go-bpf-gen@latest
 
 
 ```
-go-bpf-gen <executable path> <symbol>
+go-bpf-gen <template> <executable path> [key=value]
 
 ```
-to generate a template file to stdout suitable for basic profiling of time spent
-in the function specified by `symbol`.
 
 Example:
 
-Let's instrument `dialTCP` in the `go` executable (it's written in go) so we can
-profile it when doing things like `go get`:
+Let's instrument `dialTCP` in the `go` executable (it's written in go) using the builtin
+`templates/latency.bt` template. Execute
 
 ```
-go-bpf-gen $(which go) 'net.(*sysDialer).dialTCP' > test.bt
+go-bpf-gen templates/latency.bt $(which go) symbol='net.(*sysDialer).dialTCP' > test.bt
 ```
-
-generates a bpftrace program on my system like this:
+This gives a bpftrace script tailored to the target executable (in this case the go compiler):
 
 ```bpftrace
 
@@ -88,30 +85,33 @@ uprobe:/usr/local/go/bin/go:"net.(*sysDialer).dialTCP" + 98 {
 
 ```
 
-The script can be used as a starting point for more general scripts by using the `--empty` command line flag e.g.
-
-```
-go-bpf-gen $(which go) 'net.(*sysDialer).dialTCP'
-
-// entry to net.(*sysDialer).dialTCP
-uprobe:/usr/local/go/bin/go:"net.(*sysDialer).dialTCP" {
-}
-
-
-// exit from net.(*sysDialer).dialTCP
-uprobe:/usr/local/go/bin/go:"net.(*sysDialer).dialTCP" + 83 {
-}
-
-// exit from net.(*sysDialer).dialTCP
-uprobe:/usr/local/go/bin/go:"net.(*sysDialer).dialTCP" + 98 {
-}
-```
-
-
-
 # Getting Symbol Names
 
 Run ```readelf -a --wide target``` to get all the symbols in your target.
+
+# Tracing Program In Docker Containers
+
+Say that the target is /bin/foo in a container with pid 123. Use
+
+
+```
+/proc/123/root/bin/foo
+
+```
+
+as the target executable.
+
+# Roll Your Own Templates
+
+See the `templates` directory for examples on how to create templates. The syntax follow golang
+[text templates](https://pkg.go.dev/text/template). The templates can make use of the following
+
+
+* `.ExePath` gives the absolute path of the target executable
+* `.GoRuntime.GoidOffset` gives the offset of the `goid` field in `runtime.g`. See templates/latency.bt for an example
+* `.Arguments` gives access to the key-value pairs given on the command line
+
+
 
 # Limitations
 

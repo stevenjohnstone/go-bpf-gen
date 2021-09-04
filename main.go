@@ -1,114 +1,121 @@
 package main
 
 import (
-	"flag"
+	"embed"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 
 	"github.com/stevenjohnstone/go-bpf-gen/goid"
 	"github.com/stevenjohnstone/go-bpf-gen/ret"
 )
 
-const (
-	bpftraceEmptySrc = `
-// entry to {{ $.Symbol }}
-uprobe:{{ .Exe }}:"{{ .Symbol }}" {
+//go:embed templates
+var templates embed.FS
+
+type GoRuntime struct {
+	GoidOffset int64
 }
 
-{{ range $r := .Returns }}
-// exit from {{ $.Symbol }}
-uprobe:{{ $.Exe }}:"{{ $.Symbol }}" + {{ $r }} {
-}
-{{ end }}`
-
-	bpftraceProfileSrc = `
-
-struct g {
-	char _padding[{{ .GoidOffset }}];
-	int goid;
-};
-
-uprobe:{{ .Exe }}:runtime.execute {
-	// map thread id to goroutine id
-	$g = (struct g*)(reg("ax"));
-	@gids[tid] = $g->goid;
-}
-END {
-	clear(@gids);
+type Target struct {
+	ExePath   string
+	GoRuntime GoRuntime
+	Arguments func(string) []string
 }
 
-uprobe:{{ .Exe }}:"{{ .Symbol }}" {
-	$gid = @gids[tid];
-	@start[$gid] = nsecs;
+func (t Target) SymbolReturns(symbol string) ([]int, error) {
+	f, err := os.Open(t.ExePath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	offsets, err := ret.FindOffsets(f, symbol)
+	if err != nil {
+		return nil, err
+	}
+	return offsets, nil
 }
 
-{{ range $r := .Returns }}
-uprobe:{{ $.Exe }}:"{{ $.Symbol }}" + {{ $r }} {
-	$gid = @gids[tid];
-	@durations = hist((nsecs - @start[$gid])/1000000);
-	delete(@start[$gid]);
-}
-{{ end }}`
+func NewTarget(exe string, arguments func(string) []string) (*Target, error) {
+	exe, err := filepath.Abs(exe)
+	if err != nil {
+		return nil, err
+	}
+	f, err := os.Open(exe)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	goid, err := goid.Offset(f)
+	if err != nil {
+		return nil, err
+	}
 
-	goidOffsetMagicFallback int64 = 152
-)
+	return &Target{
+		ExePath: exe,
+		GoRuntime: GoRuntime{
+			GoidOffset: goid,
+		},
+		Arguments: arguments,
+	}, nil
+}
+
+func parseArguments(args []string) (scriptFile, targetExe string, kv map[string][]string, err error) {
+	kv = map[string][]string{}
+	if len(args) < 3 {
+		err = fmt.Errorf("usage %s <template file> <target file>", args[0])
+		return
+	}
+	scriptFile, targetExe = args[1], args[2]
+
+	args = args[3:]
+
+	for _, arg := range args {
+		s := strings.Split(arg, "=")
+		if len(s) != 2 {
+			err = fmt.Errorf("malformed argument %s, must be of form key=value", arg)
+			return
+		}
+		k, v := s[0], s[1]
+		kv[k] = append(kv[k], v)
+	}
+	return
+}
 
 func main() {
 
-	empty := flag.Bool("empty", false, "output a template bpftrace program with no function contents")
-	flag.Parse()
-
-	args := flag.Args()
-	if len(args) != 2 {
-		log.Fatalf("usage: %s [--empty] <target executable> <symbol name>", os.Args[0])
-	}
-
-	exe, symbolName := args[0], args[1]
-
-	src := bpftraceProfileSrc
-	if *empty {
-		src = bpftraceEmptySrc
-	}
-
-	tmpl := template.Must(template.New("bpf").Parse(src))
-	exe, err := filepath.Abs(exe)
+	scriptFile, targetExe, kv, err := parseArguments(os.Args)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
-	f, err := os.Open(exe)
+	scriptTemplate, err := ioutil.ReadFile(scriptFile)
 	if err != nil {
-		panic(err)
+		// try embedded files
+		f, err1 := templates.Open(scriptFile)
+		if err1 != nil {
+			log.Fatalf("failed to open %s on filesystem: (%s), tried embedded files got %s", scriptFile, err, err1)
+		}
+		scriptTemplate, err = ioutil.ReadAll(f)
+		if err != nil {
+			panic(err)
+		}
 	}
 
-	returns, err := ret.FindOffsets(f, symbolName)
+	target, err := NewTarget(targetExe, func(key string) []string {
+		return kv[key]
+	})
+
 	if err != nil {
-		panic(err)
+		log.Fatalf("failed to process target: %s", err)
 	}
 
-	if _, err := f.Seek(0, 0); err != nil {
-		panic(err)
-	}
-
-	goidOffset, err := goid.Offset(f)
-	if err != nil {
-		log.Printf("failed to find goid offset (%s). Falling back to %d\n", err, goidOffsetMagicFallback)
-		goidOffset = goidOffsetMagicFallback
-	}
-
-	if err := tmpl.Execute(os.Stdout, struct {
-		Exe        string
-		Symbol     string
-		GoidOffset int64
-		Returns    []int
-	}{
-		Exe:        exe,
-		Symbol:     symbolName,
-		GoidOffset: goidOffset,
-		Returns:    returns,
-	}); err != nil {
-		panic(err)
+	tmpl := template.Must(template.New("bpf").Parse(string(scriptTemplate)))
+	if err := tmpl.Execute(os.Stdout, target); err != nil {
+		log.Fatalf("failed to process template: %s", err)
 	}
 }

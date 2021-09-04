@@ -1,0 +1,32 @@
+struct g {
+	char _padding[{{ .GoRuntime.GoidOffset }}];
+	int goid;
+};
+
+uprobe:{{ .ExePath }}:runtime.execute {
+	// map thread id to goroutine id
+	$g = (struct g*)(reg("ax"));
+	@gids[tid] = $g->goid;
+}
+END {
+	clear(@gids);
+}
+
+
+{{ range $symbol := (call .Arguments "symbol") }}
+
+uprobe:{{ $.ExePath }}:"{{ $symbol }}" {
+	$gid = @gids[tid];
+	@start[$gid] = nsecs;
+}
+
+{{ range $index, $r := $.SymbolReturns $symbol -}}
+{{ if $index }}, {{ end }}
+uprobe:{{ $.ExePath }}:"{{ $symbol }}" + {{ $r -}}
+{{ end }} {
+	$gid = @gids[tid];
+	@durations = hist((nsecs - @start[$gid])/1000000);
+	delete(@start[$gid]);
+}
+
+{{ end }}

@@ -1,0 +1,12 @@
+{{ range $symbol := (call .Arguments "symbol") }}
+
+uprobe:{{ $.ExePath }}:"{{ $symbol }}" {
+}
+
+{{ range $index, $r := $.SymbolReturns $symbol -}}
+{{ if $index }}, {{ end }}
+uprobe:{{ $.ExePath }}:"{{ $symbol }}" + {{ $r -}}
+{{ end }} {
+}
+
+{{ end }}

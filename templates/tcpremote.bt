@@ -1,0 +1,24 @@
+struct ip {
+  char data[16];
+};
+
+struct tcpAddr {
+  // note how the slice is embedded in the net.TCPAddr struct
+  struct ip* addr;
+  long len;
+  long cap;
+  int port;
+};
+
+uprobe:{{ .ExePath }}:"net.(*sysDialer).dialTCP" {
+         // ax is receiver
+         // bx, cx is the context.Context...interfaces take two registers
+         // di is laddr
+         // si is raddr
+         $raddr = (struct tcpAddr *)reg("si");
+         $type = AF_INET;
+         if ($raddr->len == 16) {
+           $type = AF_INET6;
+         }
+         printf("%s:%d\n", ntop($type, $raddr->addr->data), $raddr->port);
+}
