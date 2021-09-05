@@ -10,6 +10,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/stevenjohnstone/go-bpf-gen/abi"
 	"github.com/stevenjohnstone/go-bpf-gen/goid"
 	"github.com/stevenjohnstone/go-bpf-gen/ret"
 )
@@ -25,9 +26,15 @@ type Target struct {
 	ExePath   string
 	GoRuntime GoRuntime
 	Arguments func(string) []string
+	RegsABI   bool
+	offsets   map[string][]int
 }
 
 func (t Target) SymbolReturns(symbol string) ([]int, error) {
+	v, ok := t.offsets[symbol]
+	if ok {
+		return v, nil
+	}
 	f, err := os.Open(t.ExePath)
 	if err != nil {
 		return nil, err
@@ -37,7 +44,17 @@ func (t Target) SymbolReturns(symbol string) ([]int, error) {
 	if err != nil {
 		return nil, err
 	}
+	t.offsets[symbol] = offsets
 	return offsets, nil
+}
+
+func regsabi(exe string) (bool, error) {
+	f, err := os.Open(exe)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+	return abi.Regs(f)
 }
 
 func NewTarget(exe string, arguments func(string) []string) (*Target, error) {
@@ -55,12 +72,19 @@ func NewTarget(exe string, arguments func(string) []string) (*Target, error) {
 		return nil, err
 	}
 
+	regsAbi, err := regsabi(exe)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Target{
 		ExePath: exe,
 		GoRuntime: GoRuntime{
 			GoidOffset: goid,
 		},
 		Arguments: arguments,
+		RegsABI:   regsAbi,
+		offsets:   map[string][]int{},
 	}, nil
 }
 

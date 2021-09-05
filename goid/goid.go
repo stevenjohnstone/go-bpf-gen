@@ -26,7 +26,7 @@ func Offset(f io.ReaderAt) (int64, error) {
 	}
 	dbg, err := file.DWARF()
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
 
 	reader := dbg.Reader()
@@ -35,7 +35,7 @@ func Offset(f io.ReaderAt) (int64, error) {
 		for {
 			entry, err := reader.Next()
 			if err != nil {
-				if err == io.EOF {
+				if entry == nil || err == io.EOF {
 					return nil, ErrNotFound
 				}
 				return nil, err
