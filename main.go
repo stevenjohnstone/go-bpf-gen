@@ -11,20 +11,14 @@ import (
 	"text/template"
 
 	"github.com/stevenjohnstone/go-bpf-gen/abi"
-	"github.com/stevenjohnstone/go-bpf-gen/goid"
 	"github.com/stevenjohnstone/go-bpf-gen/ret"
 )
 
 //go:embed templates
 var templates embed.FS
 
-type GoRuntime struct {
-	GoidOffset int64
-}
-
 type Target struct {
 	ExePath   string
-	GoRuntime GoRuntime
 	Arguments func(string) []string
 	RegsABI   bool
 	offsets   map[string][]int
@@ -83,11 +77,6 @@ func NewTarget(exe string, arguments func(string) []string) (*Target, error) {
 		return nil, err
 	}
 	defer f.Close()
-	offset, err := goid.Offset(f)
-	if err != nil {
-		log.Printf("couldn't get goid offset in runtime.g (%s). falling back to 152", err)
-		offset = 152
-	}
 
 	regsAbi, err := regsabi(exe)
 	if err != nil {
@@ -95,10 +84,7 @@ func NewTarget(exe string, arguments func(string) []string) (*Target, error) {
 	}
 
 	return &Target{
-		ExePath: exe,
-		GoRuntime: GoRuntime{
-			GoidOffset: offset,
-		},
+		ExePath:   exe,
 		Arguments: arguments,
 		RegsABI:   regsAbi,
 		offsets:   map[string][]int{},

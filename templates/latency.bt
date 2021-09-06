@@ -1,8 +1,3 @@
-struct g {
-	char _padding[{{ .GoRuntime.GoidOffset }}];
-	int goid;
-};
-
 BEGIN {
   printf("Hit CTRL+C to end profiling\n");
 }
@@ -10,8 +5,7 @@ BEGIN {
 
 uprobe:{{ .ExePath }}:runtime.execute {
 	// map thread id to goroutine id
-	$g = (struct g*)({{ .Arg 0 }});
-	@gids[tid] = $g->goid;
+	@gids[tid] = {{ .Arg 0 }}
 }
 END {
 	clear(@gids);

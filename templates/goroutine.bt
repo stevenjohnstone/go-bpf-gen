@@ -1,12 +1,6 @@
-struct g {
-	char _padding[{{ .GoRuntime.GoidOffset }}];
-	int goid;
-};
-
 uprobe:{{ .ExePath }}:runtime.execute {
-	// map thread id to goroutine id
-	$g = (struct g*)({{ .Arg 0 }});
-	@gids[tid] = $g->goid;
+	// map thread id to address of runtime.g
+	@gids[tid] = {{ .Arg 0 }}
 }
 
 

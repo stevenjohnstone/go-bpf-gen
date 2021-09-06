@@ -173,7 +173,6 @@ See the `templates` directory for examples on how to create templates. These are
 
 
 * `.ExePath` gives the absolute path of the target executable
-* `.GoRuntime.GoidOffset` gives the offset of the `goid` field in `runtime.g`. See templates/latency.bt for an example
 * `.Arguments` gives access to the key-value pairs given on the command line
 * `.RegsABI` is true if argument passing with registers is enabled
 
