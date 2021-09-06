@@ -10,7 +10,7 @@ BEGIN {
 
 uprobe:{{ .ExePath }}:runtime.execute {
 	// map thread id to goroutine id
-	$g = (struct g*)(reg("ax"));
+	$g = (struct g*)({{ .Arg 0 }});
 	@gids[tid] = $g->goid;
 }
 END {

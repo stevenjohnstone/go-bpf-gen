@@ -9,7 +9,7 @@ BEGIN {
 
 uprobe:{{ .ExePath }}:runtime.execute {
 	// map thread id to goroutine id
-	$g = (struct g*)(reg("ax"));
+	$g = (struct g*)({{ .Arg 0 }});
 	@gids[tid] = $g->goid;
 }
 END {
@@ -19,7 +19,9 @@ END {
 
 uprobe:{{ $.ExePath }}:"os.(*File).Read" {
 	$gid = @gids[tid];
-	@len[$gid] = reg("cx");
+  // argument 0 is the receiver, 1, 2 and 3 make up the
+  // slice (ptr, len, cap).
+	@len[$gid] = {{ .Arg 2 }};
 }
 
 {{ range $index, $r := $.SymbolReturns "os.(*File).Read" -}}
@@ -27,7 +29,7 @@ uprobe:{{ $.ExePath }}:"os.(*File).Read" {
 uprobe:{{ $.ExePath }}:"os.(*File).Read" + {{ $r -}}
 {{ end }} {
 	$gid = @gids[tid];
-  $len = reg("ax");
+  $len = {{ .Arg 0 }};
   if ($len < @len[$gid]) {
     @shortreads[ustack()] = count();
   }

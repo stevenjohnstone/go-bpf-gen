@@ -34,8 +34,11 @@ func Offset(f io.ReaderAt) (int64, error) {
 	runtimeg, err := func() (*dwarf.Entry, error) {
 		for {
 			entry, err := reader.Next()
+			if entry == nil {
+				return nil, ErrNotFound
+			}
 			if err != nil {
-				if entry == nil || err == io.EOF {
+				if err == io.EOF {
 					return nil, ErrNotFound
 				}
 				return nil, err

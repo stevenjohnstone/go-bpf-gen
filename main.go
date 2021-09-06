@@ -57,6 +57,22 @@ func regsabi(exe string) (bool, error) {
 	return abi.Regs(f)
 }
 
+var regs = [...]string{"ax", "bx", "cx", "di", "si", "r8", "r9", "r10", "r11"}
+
+// Arg maps argument indices to bpftrace built-ins taking into account which ABI
+// is in use
+func (t Target) Arg(i int) string {
+	if t.RegsABI {
+		// rax, rbx, rcx, rdi, rsi, r8, r9, r10, r11 should do
+		if i < 0 || i >= len(regs) {
+			panic("argument out of bounds. roll your own")
+		}
+		return fmt.Sprintf("reg(\"%s\")", regs[i])
+	}
+
+	return fmt.Sprintf("sarg%d", i)
+}
+
 func NewTarget(exe string, arguments func(string) []string) (*Target, error) {
 	exe, err := filepath.Abs(exe)
 	if err != nil {
@@ -67,20 +83,21 @@ func NewTarget(exe string, arguments func(string) []string) (*Target, error) {
 		return nil, err
 	}
 	defer f.Close()
-	goid, err := goid.Offset(f)
+	offset, err := goid.Offset(f)
 	if err != nil {
-		return nil, err
+		log.Printf("couldn't get goid offset in runtime.g (%s). falling back to 152", err)
+		offset = 152
 	}
 
 	regsAbi, err := regsabi(exe)
 	if err != nil {
-		return nil, err
+		log.Printf("couldn't get regs abi (%s). falling back to stack calling convention", err)
 	}
 
 	return &Target{
 		ExePath: exe,
 		GoRuntime: GoRuntime{
-			GoidOffset: goid,
+			GoidOffset: offset,
 		},
 		Arguments: arguments,
 		RegsABI:   regsAbi,

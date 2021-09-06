@@ -1,0 +1,16 @@
+struct g {
+	char _padding[{{ .GoRuntime.GoidOffset }}];
+	int goid;
+};
+
+uprobe:{{ .ExePath }}:runtime.execute {
+	// map thread id to goroutine id
+	$g = (struct g*)({{ .Arg 0 }});
+	@gids[tid] = $g->goid;
+}
+
+
+uprobe:{{ .ExePath }}:"runtime.newproc" {
+         $gid = @gids[tid];
+         printf("%d spawning goroutine: %s\n", $gid, ustack());
+}
