@@ -5,6 +5,10 @@ uprobe:{{ .ExePath }}:runtime.execute {
 
 
 uprobe:{{ .ExePath }}:"runtime.newproc" {
-         $gid = @gids[tid];
-         printf("%d spawning goroutine: %s\n", $gid, ustack());
+  $gid = @gids[tid];
+  printf("%d spawning goroutine: %s\n", $gid, ustack());
+}
+
+tracepoint:sched:sched_process_exit {
+  delete(@gids[tid]);
 }
