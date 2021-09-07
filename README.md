@@ -308,7 +308,7 @@ See the `templates` directory for examples on how to create templates. These are
 # Limitations
 
 * Only works on x86-64
-* Requires golang >= 1.17
+* Requires target to be built with golang >= 1.17 for full functionality. Some scripts will not work without the register based calling convention.
 * bpftrace needs to built with the option "ALLOW_UNSAFE_MODE" and bpftrace needs to be run with the "--unsafe" flag
 * short lived programs may have stack traces which are only hex addresses. See [this](https://github.com/iovisor/bpftrace/issues/246) bug
 
