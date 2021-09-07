@@ -1,5 +1,8 @@
 struct ip {
-  char data[16];
+  union {
+    uint8_t bytes[16];
+    uint32_t words[4];
+  };
 };
 
 struct tcpAddr {
@@ -10,12 +13,18 @@ struct tcpAddr {
   int port;
 };
 
+
 uprobe:{{ .ExePath }}:"net.(*sysDialer).dialTCP" {
-         // {{ .Arg 0 }} is receiver
-         // {{ .Arg 1 }}, {{ .Arg 2 }}  is the context.Context...interfaces take two registers
-         // {{ .Arg 3}} is laddr
-         // {{ .Arg 4}} is raddr
-         $raddr = (struct tcpAddr *){{ .Arg 4 }};
-         $d = $raddr->addr->data; // buggy bpftrace? need to do this for data to be read below
-         printf("%s:%d\n", ntop(10, $raddr->addr->data), $raddr->port);
+  // {{ .Arg 0 }} is receiver
+  // {{ .Arg 1 }}, {{ .Arg 2 }}  is the context.Context...interfaces take two registers
+  // {{ .Arg 3}} is laddr
+  // {{ .Arg 4}} is raddr
+  $raddr = (struct tcpAddr *){{ .Arg 4 }};
+  $bytes = $raddr->addr->bytes;
+  $words = $raddr->addr->words;
+  if ($words[0] == 0 && $words[1] == 0 && $words[2] == 0xffff0000) {
+    printf("%d.%d.%d.%d:%d\n", $bytes[12], $bytes[13], $bytes[14], $bytes[15], $raddr->port);
+  } else {
+    printf("%s:%d\n", ntop(10, $raddr->addr->bytes), $raddr->port);
+  }
 }
