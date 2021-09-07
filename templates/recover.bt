@@ -1,3 +1,4 @@
+{{ if not .RegsABI -}} {{ panic  "not supported" }} {{ end -}}
 {{ range $index, $r := $.SymbolReturns "runtime.gorecover" -}}
 {{ if $index }}, {{ end }}
 uprobe:{{ $.ExePath }}:"runtime.gorecover" + {{ $r -}}

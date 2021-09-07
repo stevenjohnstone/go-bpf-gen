@@ -1,10 +1,11 @@
+{{ if not .RegsABI -}} {{ panic  "not supported" }} {{ end -}}
 BEGIN {
   printf("Hit CTRL+C to end profiling\n");
 }
 
 uprobe:{{ .ExePath }}:runtime.execute {
 	// map thread id to goroutine id
-	@gids[tid] = {{ .Args 0 }}
+	@gids[tid] = {{ .Arg 0 }}
 }
 
 tracepoint:sched:sched_process_exit {

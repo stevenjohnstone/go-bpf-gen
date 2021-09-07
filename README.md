@@ -1,7 +1,7 @@
 # About
 
-Generate bpftrace programs suitable for tracing a golang program on x86-64 with
-golang >= 1.17.
+Generate bpftrace programs suitable for tracing a golang program on x86-64 built with
+golang.
 
 # Why?
 
@@ -104,13 +104,14 @@ go-bpf-gen <template> <executable path> [key=value]
 
 Example:
 
-Let's instrument `dialTCP` in the `go` executable (it's written in go) using the builtin
-`templates/latency.bt` template. Execute
+Let's find out which addresses dockerd makes connections to when we do a `docker pull`.
+We generate a bpftrace script to instrument the `dockerd` executable (it's written in go) using the builtin
+`templates/tcpsnoop.bt` template. Execute
 
 ```
-go-bpf-gen templates/latency.bt $(which go) symbol='net.(*sysDialer).dialTCP' > test.bt
+go-bpf-gen templates/tcpremote.bt $(which dockerd) > dockerd.bt
 ```
-This gives a bpftrace script tailored to the target executable (in this case the go compiler):
+This gives a bpftrace script tailored to the target executable
 
 ```bpftrace
 struct g {

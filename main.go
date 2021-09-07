@@ -42,6 +42,14 @@ func (t Target) SymbolReturns(symbol string) ([]int, error) {
 	return offsets, nil
 }
 
+func (t Target) SymbolReturnsNoFail(symbol string) []int {
+	v, err := t.SymbolReturns(symbol)
+	if err != nil {
+		return []int{1}
+	}
+	return v
+}
+
 func regsabi(exe string) (bool, error) {
 	f, err := os.Open(exe)
 	if err != nil {
@@ -141,7 +149,7 @@ func main() {
 		log.Fatalf("failed to process target: %s", err)
 	}
 
-	tmpl := template.Must(template.New("bpf").Parse(string(scriptTemplate)))
+	tmpl := template.Must(template.New("bpf").Funcs(template.FuncMap{"panic": func(s string) string { panic(s) }}).Parse(string(scriptTemplate)))
 	if err := tmpl.Execute(os.Stdout, target); err != nil {
 		log.Fatalf("failed to process template: %s", err)
 	}
