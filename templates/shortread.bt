@@ -1,4 +1,3 @@
-{{ if not .RegsABI -}} {{ panic  "not supported" }} {{ end -}}
 BEGIN {
   printf("Hit CTRL+C to end profiling\n");
 }
@@ -25,7 +24,7 @@ uprobe:{{ $.ExePath }}:"os.(*File).Read" {
 uprobe:{{ $.ExePath }}:"os.(*File).Read" + {{ $r -}}
 {{ end }} {
 	$gid = @gids[tid];
-  $len = {{ .Arg 0 }};
+  $len = reg("ax");
   if ($len < @len[$gid]) {
     @shortreads[ustack()] = count();
   }

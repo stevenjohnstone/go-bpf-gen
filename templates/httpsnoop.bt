@@ -31,6 +31,9 @@ tracepoint:sched:sched_process_exit {
   delete(@rscheme[@gids[tid]]);
   delete(@rhost[@gids[tid]]);
   delete(@rpath[@gids[tid]]);
+{{ if not .RegsABI }}
+  delete(@addr[]@gids[tid]]);
+{{ end -}}
   delete(@gids[tid]);
 }
 
@@ -50,7 +53,12 @@ uprobe:{{ .ExePath }}:"net/http.(*Client).do" {
 {{ if $index }}, {{ end }}
 uprobe:{{ $.ExePath }}:"net/http.(*Client).do" + {{ $r -}}
 {{ end }} {
-  $resp = (struct response *)reg("ax"); // XXXSJJ: rax contains pointer to the response
+  {{ if $.RegsABI }}
+  $resp = (struct response *)reg("ax");
+  {{ else }}
+  @addr[@gids[tid]] = *(reg("sp") + 24);
+  $resp = (struct response *)@addr[@gids[tid]];
+  {{ end }}
   if ($resp == 0) {
     printf("error %s://%s%s\n", @rscheme[@gids[tid]], @rhost[@gids[tid]], @rpath[@gids[tid]]);
   } else {
