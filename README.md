@@ -199,7 +199,7 @@ uprobe:/usr/bin/dockerd:"net/http.(*Client).do" + 4511 {
 
 ```
 
-When I execute `docker pull alipine` on my system, the above script outputs
+When I execute `docker pull alpine` on my system, the above script outputs
 
 ```
 Attaching 12 probes...
