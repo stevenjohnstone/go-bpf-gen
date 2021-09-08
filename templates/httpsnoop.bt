@@ -28,12 +28,12 @@ uprobe:{{ .ExePath }}:runtime.execute {
 }
 
 tracepoint:sched:sched_process_exit {
-  delete(@rscheme[@gids[tid]]);
-  delete(@rhost[@gids[tid]]);
-  delete(@rpath[@gids[tid]]);
+  delete(@rscheme[@gids[tid], pid]);
+  delete(@rhost[@gids[tid], pid]);
+  delete(@rpath[@gids[tid], pid]);
 {{ if not .RegsABI }}
-  delete(@addr[]@gids[tid]]);
-{{ end -}}
+  delete(@addr[@gids[tid], pid]);
+{{ end }}
   delete(@gids[tid]);
 }
 
@@ -44,9 +44,9 @@ uprobe:{{ .ExePath }}:"net/http.(*Client).do" {
   $host = str($url->host, $url->hostlen);
   $path = str($url->path, $url->pathlen);
 
-  @rscheme[@gids[tid]] = $scheme;
-  @rhost[@gids[tid]] = $host;
-  @rpath[@gids[tid]] = $path;
+  @rscheme[@gids[tid], pid] = $scheme;
+  @rhost[@gids[tid], pid] = $host;
+  @rpath[@gids[tid], pid] = $path;
 }
 
 {{ range $index, $r := $.SymbolReturns "net/http.(*Client).do" -}}
@@ -56,13 +56,13 @@ uprobe:{{ $.ExePath }}:"net/http.(*Client).do" + {{ $r -}}
   {{ if $.RegsABI }}
   $resp = (struct response *)reg("ax");
   {{ else }}
-  @addr[@gids[tid]] = *(reg("sp") + 24);
-  $resp = (struct response *)@addr[@gids[tid]];
+  @addr[@gids[tid], pid] = *(reg("sp") + 24);
+  $resp = (struct response *)@addr[@gids[tid], pid];
   {{ end }}
   if ($resp == 0) {
-    printf("error %s://%s%s\n", @rscheme[@gids[tid]], @rhost[@gids[tid]], @rpath[@gids[tid]]);
+    printf("error %s://%s%s\n", @rscheme[@gids[tid], pid], @rhost[@gids[tid], pid], @rpath[@gids[tid], pid]);
   } else {
-    printf("%d: %s://%s%s\n", $resp->statuscode, @rscheme[@gids[tid]], @rhost[@gids[tid]], @rpath[@gids[tid]]);
+    printf("%d: %s://%s%s\n", $resp->statuscode, @rscheme[@gids[tid], pid], @rhost[@gids[tid], pid], @rpath[@gids[tid], pid]);
   }
   print(ustack());
 }

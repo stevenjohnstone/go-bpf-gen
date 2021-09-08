@@ -13,11 +13,11 @@ tracepoint:sched:sched_process_exit {
 }
 
 
-{{ range $symbol := (call .Arguments "symbol") }}
+{{ range $symbolidx, $symbol := (call .Arguments "symbol") }}
 
 uprobe:{{ $.ExePath }}:"{{ $symbol }}" {
 	$gid = @gids[tid];
-	@start[$gid] = nsecs;
+	@start{{ $symbolidx }}[$gid, pid] = nsecs;
 }
 
 {{ range $index, $r := $.SymbolReturns $symbol -}}
@@ -25,8 +25,8 @@ uprobe:{{ $.ExePath }}:"{{ $symbol }}" {
 uprobe:{{ $.ExePath }}:"{{ $symbol }}" + {{ $r -}}
 {{ end }} {
 	$gid = @gids[tid];
-	@durations = hist((nsecs - @start[$gid])/1000000);
-	delete(@start[$gid]);
+	@durations["{{ $symbol }}"] = hist((nsecs - @start{{ $symbolidx }}[$gid, pid])/1000000);
+	delete(@start[$gid, pid]);
 }
 
 {{ end }}
