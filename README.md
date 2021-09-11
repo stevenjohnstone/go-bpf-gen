@@ -1,7 +1,6 @@
 # About
 
-Generate bpftrace programs suitable for tracing a golang program on x86-64 built with
-golang.
+Generate bpftrace programs suitable for tracing a golang program on x86-64.
 
 # Why?
 
