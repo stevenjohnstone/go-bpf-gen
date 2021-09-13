@@ -20,8 +20,8 @@ func Regs(r io.ReaderAt) (bool, error) {
 	// programs written in golang (dockerd etc etc), do something
 	// a little hacky to work out the calling convention.
 	//
-	// runtime.memequal0 is very short and revels which calling
-	// concention is used
+	// runtime.memequal0 is very short and reveals which calling
+	// convention is used
 	// e.g for register based
 	// TEXT runtime.memequal0(SB) /usr/local/go/src/runtime/alg.go
 	//  alg.go:201		0x4023a0		b801000000		MOVL $0x1, AX
