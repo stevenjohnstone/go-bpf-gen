@@ -1,0 +1,31 @@
+BEGIN {
+  printf("Hit CTRL+C to end profiling\n");
+}
+
+uprobe:{{ .ExePath }}:runtime.execute {
+  // map thread id to goroutine id
+  @gids[tid] = {{ .Arg 0 }}
+}
+
+tracepoint:sched:sched_process_exit {
+  delete(@gids[tid]);
+}
+
+
+uprobe:{{ $.ExePath }}:"crypto/rand.(*devReader).Read" {
+  $gid = @gids[tid];
+  // argument 0 is the receiver, 1, 2 and 3 make up the
+  // slice (ptr, len, cap).
+  @ptr[$gid, pid] = {{ .Arg 1 }};
+}
+
+{{ range $index, $r := $.SymbolReturns "crypto/rand.(*devReader).Read" -}}
+{{ if $index }}, {{ end }}
+uprobe:{{ $.ExePath }}:"crypto/rand.(*devReader).Read" + {{ $r -}}
+{{ end }} {
+  $gid = @gids[tid];
+  $data = buf(@ptr[$gid, pid], reg("ax"));
+  delete(@ptr[$gid, pid]);
+  printf("%rx\n", $data);
+}
+

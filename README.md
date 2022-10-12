@@ -97,6 +97,14 @@ go-bpf-gen templates/tlssecrets.bt <target binary>
 will output secrets which can be used with wireshark to decode
 network traces of TLS connections made to/from the program.
 
+## random.bt
+Snoop on reads from cryptographic random number generators with a script from
+```
+go-bpf-get templates/random.bt <target binary>
+```
+This will output the bytes read from the random number generator. Clearly, this may compromise the security of any cryptography the program happens to be
+using.
+
 
 
 
