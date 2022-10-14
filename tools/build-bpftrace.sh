@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-git clone --branch sjj/sanitise-prog-name https://github.com/stevenjohnstone/bpftrace
+git clone --depth=1 https://github.com/iovisor/bpftrace
 mkdir -p bin
 pushd bpftrace
 ./build-static.sh
