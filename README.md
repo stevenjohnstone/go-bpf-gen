@@ -97,6 +97,19 @@ go-bpf-gen templates/tlssecrets.bt <target binary>
 will output secrets which can be used with wireshark to decode
 network traces of TLS connections made to/from the program.
 
+Here's how to use this to inspect TLS traffic from dockerd
+
+1. Generate ``tls.bt`` with ```go-bpf-gen templates/tlssecrets.bt /usr/bin/dockerd > tls.bt```
+2. run bpftrace: ```sudo bpftrace tls.bt | sed '1d;s/\\x//g' > secrets.txt```
+3. start a capture of traffic e.g. ```sudo tcpdump -nnSX port 443 -w https.pcap```
+4. do something with docker e.g. ```docker pull alpine```
+5. stop the tcpdump capture and bpftrace run.
+6. inject TLS secrets with ```editcap --inject-secrets tls,secrets.txt https.pcap decrypted.pcap```
+7. open ```decrypted.pcap``` with wireshark and notice there's plaintext of TLS traffic e.g.
+
+![image](https://user-images.githubusercontent.com/6546704/197301643-68fb1b0a-acf4-4b8a-b190-77a14a0bcac4.png)
+
+
 ## random.bt
 Snoop on reads from cryptographic random number generators with a script from
 ```
