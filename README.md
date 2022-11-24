@@ -109,6 +109,7 @@ Here's how to use this to inspect TLS traffic from dockerd
 
 ![image](https://user-images.githubusercontent.com/6546704/197301643-68fb1b0a-acf4-4b8a-b190-77a14a0bcac4.png)
 
+Similar functionality is provided by [this](https://github.com/stevenjohnstone/reversing-tools/blob/main/golang/tls_secrets.py) [Frida](https://frida.re) script.
 
 ## random.bt
 Snoop on reads from cryptographic random number generators with a script from
