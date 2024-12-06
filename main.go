@@ -3,7 +3,7 @@ package main
 import (
 	"embed"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -72,7 +72,22 @@ func (t Target) Arg(i int) string {
 		return fmt.Sprintf("reg(\"%s\")", regs[i])
 	}
 
-	return fmt.Sprintf("sarg%d", i)
+	// FIX: WARNING: sarg* is deprecated and will be removed in the future. Use *(reg("sp") + <stack_offset>) instead.
+	return fmt.Sprintf(`*(reg("sp") + %d)`, 8*(i+1))
+}
+
+// RetArg maps return argument indices to bpftrace built-ins taking into account which ABI
+// is in use
+func (t Target) RetArg(i, offset int) string {
+	if t.RegsABI {
+		// rax, rbx, rcx, rdi, rsi, r8, r9, r10, r11 should do
+		if i < 0 || i >= len(regs) {
+			panic("argument out of bounds. roll your own")
+		}
+		return fmt.Sprintf("reg(\"%s\")", regs[i])
+	}
+
+	return fmt.Sprintf(`*(reg("sp") + %d)`, 8*(i+1+offset))
 }
 
 func NewTarget(exe string, arguments func(string) []string) (*Target, error) {
@@ -128,14 +143,14 @@ func main() {
 		log.Fatal(err)
 	}
 
-	scriptTemplate, err := ioutil.ReadFile(scriptFile)
+	scriptTemplate, err := os.ReadFile(scriptFile)
 	if err != nil {
 		// try embedded files
 		f, err1 := templates.Open(scriptFile)
 		if err1 != nil {
 			log.Fatalf("failed to open %s on filesystem: (%s), tried embedded files got %s", scriptFile, err, err1)
 		}
-		scriptTemplate, err = ioutil.ReadAll(f)
+		scriptTemplate, err = io.ReadAll(f)
 		if err != nil {
 			panic(err)
 		}

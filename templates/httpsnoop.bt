@@ -11,7 +11,8 @@ struct url {
 };
 
 struct request {
-  uint8_t pad[16];
+  uint8_t *method;
+  int methodlen;
   struct url *url;
 };
 
@@ -28,45 +29,45 @@ uprobe:{{ .ExePath }}:runtime.execute {
 }
 
 tracepoint:sched:sched_process_exit {
+  delete(@rmethod[@gids[tid], pid]);
   delete(@rscheme[@gids[tid], pid]);
   delete(@rhost[@gids[tid], pid]);
   delete(@rpath[@gids[tid], pid]);
-{{ if not .RegsABI }}
-  delete(@addr[@gids[tid], pid]);
-{{ end }}
   delete(@gids[tid]);
 }
 
-
 uprobe:{{ .ExePath }}:"net/http.(*Client).do" {
-  $url = ((struct request *){{ .Arg 1 }})->url;
+  $request = ((struct request *){{ .Arg 1 }});
+  $url = $request->url;
+  $method = str($request->method, $request->methodlen);
   $scheme = str($url->scheme, $url->schemelen);
   $host = str($url->host, $url->hostlen);
   $path = str($url->path, $url->pathlen);
 
+  @rmethod[@gids[tid], pid] = $method;
   @rscheme[@gids[tid], pid] = $scheme;
   @rhost[@gids[tid], pid] = $host;
   @rpath[@gids[tid], pid] = $path;
 }
-
-{{ range $index, $r := $.SymbolReturns "net/http.(*Client).do" -}}
+{{range $index, $r := $.SymbolReturns "net/http.(*Client).do" -}}
 {{ if $index }}, {{ end }}
 uprobe:{{ $.ExePath }}:"net/http.(*Client).do" + {{ $r -}}
 {{ end }} {
-  {{ if $.RegsABI }}
-  $resp = (struct response *)reg("ax");
-  {{ else }}
-  @addr[@gids[tid], pid] = *(reg("sp") + 24);
-  $resp = (struct response *)@addr[@gids[tid], pid];
-  {{ end }}
+  $resp = (struct response *){{ .RetArg 0 2 }};
+
   if ($resp == 0) {
-    printf("error %s://%s%s\n", @rscheme[@gids[tid], pid], @rhost[@gids[tid], pid], @rpath[@gids[tid], pid]);
+    printf("error %s %s://%s%s\n",
+      @rmethod[@gids[tid], pid],
+      @rscheme[@gids[tid], pid],
+      @rhost[@gids[tid], pid],
+      @rpath[@gids[tid], pid]);
   } else {
-    printf("%d: %s://%s%s\n", $resp->statuscode, @rscheme[@gids[tid], pid], @rhost[@gids[tid], pid], @rpath[@gids[tid], pid]);
+    printf("%d: %s %s://%s%s\n",
+      $resp->statuscode,
+      @rmethod[@gids[tid], pid],
+      @rscheme[@gids[tid], pid],
+      @rhost[@gids[tid], pid],
+      @rpath[@gids[tid], pid]);
   }
   print(ustack());
 }
-
-
-
-
