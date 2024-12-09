@@ -65,8 +65,12 @@ var regs = [...]string{"ax", "bx", "cx", "di", "si", "r8", "r9", "r10", "r11"}
 // is in use
 func (t Target) Arg(i int) string {
 	if t.RegsABI {
+		if i >= len(regs) {
+			return fmt.Sprintf(`*(reg("sp") + %d)`, 8*(i-8))
+		}
 		// rax, rbx, rcx, rdi, rsi, r8, r9, r10, r11 should do
-		if i < 0 || i >= len(regs) {
+		// Refer: https://go.googlesource.com/go/+/refs/heads/dev.regabi/src/cmd/compile/internal-abi.md#amd64-architecture
+		if i < 0 {
 			panic("argument out of bounds. roll your own")
 		}
 		return fmt.Sprintf("reg(\"%s\")", regs[i])
@@ -78,16 +82,25 @@ func (t Target) Arg(i int) string {
 
 // RetArg maps return argument indices to bpftrace built-ins taking into account which ABI
 // is in use
-func (t Target) RetArg(i, offset int) string {
+func (t Target) RetArg(i, startOffset int) string {
 	if t.RegsABI {
+		// ret args is on stack
+		if i >= len(regs) {
+			// calc offset of args
+			var argsOffset int
+			if startOffset >= len(regs) {
+				argsOffset = 8 * (startOffset - 8)
+			}
+			return fmt.Sprintf(`*(reg("sp") + %d)`, 8*(i-8)+argsOffset)
+		}
 		// rax, rbx, rcx, rdi, rsi, r8, r9, r10, r11 should do
-		if i < 0 || i >= len(regs) {
-			panic("argument out of bounds. roll your own")
+		if i < 0 {
+			panic("return argument out of bounds. roll your own")
 		}
 		return fmt.Sprintf("reg(\"%s\")", regs[i])
 	}
 
-	return fmt.Sprintf(`*(reg("sp") + %d)`, 8*(i+1+offset))
+	return fmt.Sprintf(`*(reg("sp") + %d)`, 8*(i+1+startOffset))
 }
 
 func NewTarget(exe string, arguments func(string) []string) (*Target, error) {
