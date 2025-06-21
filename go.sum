@@ -1,3 +1,2 @@
-golang.org/x/arch v0.0.0-20210901143047-ebb09ed340f1 h1:MwxAfiDvuwX8Nnnc6iRDhzyMyyc2tz5tYyCP/pZcPCg=
-golang.org/x/arch v0.0.0-20210901143047-ebb09ed340f1/go.mod h1:5om86z9Hs0C8fWVUuoMHwpExlXzs5Tkyp9hOrfG7pp8=
-rsc.io/pdf v0.1.1/go.mod h1:n8OzWcQ6Sp37PL01nO98y4iUCRdTGarVfzxY20ICaU4=
+golang.org/x/arch v0.18.0 h1:WN9poc33zL4AzGxqf8VtpKUnGvMi8O9lhNyBMF/85qc=
+golang.org/x/arch v0.18.0/go.mod h1:bdwinDaKcfZUGpH09BB7ZmOfhalA8lQdzl62l8gGWsk=
